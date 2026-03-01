@@ -1,7 +1,8 @@
 ---
 name: test-writer
-description: Writes comprehensive tests for new code
-model: opus
+description: Writes comprehensive tests for new code. Uses Sonnet for balanced code generation at lower cost.
+model: sonnet
+modelTier: 2
 isolation: worktree
 tools: Read, Write, Edit, Bash, Grep, Glob
 permissionMode: bypassPermissions

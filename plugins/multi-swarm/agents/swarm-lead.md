@@ -3,6 +3,7 @@ name: swarm-lead
 description: Autonomous swarm lead for multi-swarm parallel execution
 tools: Bash, Read, Write, Edit, Glob, Grep, Agent, TeamCreate, TaskCreate, TaskUpdate, TaskList, SendMessage
 model: opus
+modelTier: 1
 permissionMode: bypassPermissions
 ---
 

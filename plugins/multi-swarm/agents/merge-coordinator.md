@@ -2,6 +2,7 @@
 name: merge-coordinator
 description: Handles PR creation and sequential merge for multi-swarm runs
 model: opus
+modelTier: 1
 tools: Bash, Read, Write, Glob, Grep, SendMessage, TaskUpdate
 permissionMode: bypassPermissions
 ---

@@ -116,5 +116,17 @@ else
     fi
 fi
 
+# Cost Summary
+echo "── Cost Summary ─────────────────────────────────────"
+COST_TRACKER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cost-tracker.sh"
+if [ -f "$COST_TRACKER" ]; then
+    source "$COST_TRACKER"
+    get_cost_summary "$RUN_ID"
+    echo ""
+    get_savings "$RUN_ID"
+else
+    echo "  Cost tracker not available"
+fi
 echo ""
+
 echo "╚══════════════════════════════════════════════════════╝"

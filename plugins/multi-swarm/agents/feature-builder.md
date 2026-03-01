@@ -2,6 +2,7 @@
 name: feature-builder
 description: Implements features in isolated worktree
 model: opus
+modelTier: 1
 isolation: worktree
 tools: Read, Write, Edit, Bash, Grep, Glob
 permissionMode: bypassPermissions
