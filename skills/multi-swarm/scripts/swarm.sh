@@ -139,6 +139,9 @@ STATUS
 cd '${WORKTREE_PATH}'
 unset CLAUDECODE
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+# Route all API calls through LiteLLM gateway for token round-robin
+export ANTHROPIC_BASE_URL="http://127.0.0.1:${GATEWAY_PORT}"
+export ANTHROPIC_API_KEY="${MASTER_KEY}"
 PROMPT=\$(cat '${PROMPT_FILE}')
 claude --dangerously-skip-permissions \\
        --model opus \\
@@ -151,6 +154,9 @@ LAUNCH
 #!/usr/bin/env bash
 cd '${WORKTREE_PATH}'
 unset CLAUDECODE
+# Route all API calls through LiteLLM gateway for token round-robin
+export ANTHROPIC_BASE_URL="http://127.0.0.1:${GATEWAY_PORT}"
+export ANTHROPIC_API_KEY="${MASTER_KEY}"
 PROMPT=\$(cat '${PROMPT_FILE}')
 claude --dangerously-skip-permissions \\
        --model opus \\
