@@ -14,6 +14,7 @@ STATE_DIR="$HOME/.claude/multi-swarm/state/${RUN_ID}"
 PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 TMUX_SESSION="swarm-${RUN_ID}"
 TOKENS_FILE="$HOME/.claude/multi-swarm/tokens.json"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load OAuth tokens for round-robin assignment
 if [ ! -f "$TOKENS_FILE" ]; then
@@ -58,17 +59,44 @@ tmux new-session -d -s "$TMUX_SESSION" -n "monitor" 2>/dev/null || {
 
 echo "Created tmux session: $TMUX_SESSION"
 
-# Launch each swarm
-for i in $(seq 1 "$SWARM_COUNT"); do
+# ---------------------------------------------------------------------------
+# Check if DAG scheduling is needed
+# If any swarm declares dependencies, delegate to the DAG scheduler which
+# handles topological ordering, cycle detection, and dependency-aware launch.
+# Set USE_DAG_SCHEDULER=1 to force DAG mode even without explicit dependencies.
+# ---------------------------------------------------------------------------
+HAS_DEPS=$(jq '[.swarms[]? | select(.dependencies != null and (.dependencies | length) > 0)] | length' "$MANIFEST")
+
+if [ "$HAS_DEPS" -gt 0 ] || [ "${USE_DAG_SCHEDULER:-0}" = "1" ]; then
+    echo ""
+    echo "Dependencies detected ($HAS_DEPS swarm(s) with dependencies) — using DAG scheduler"
+    # Kill the tmux session we just created; dag-scheduler.sh manages its own
+    tmux kill-session -t "$TMUX_SESSION" 2>/dev/null || true
+    exec bash "${SCRIPT_DIR}/dag-scheduler.sh" "$RUN_ID" "$BASE_BRANCH" "$SWARM_COUNT" "$TEAM_SIZE" "$MANIFEST"
+fi
+
+echo "No dependencies detected — using linear launch"
+
+# ---------------------------------------------------------------------------
+# launch_single_swarm — launches one swarm in the existing tmux session
+#
+# Arguments: $1 = swarm index (1-based)
+# Uses globals: RUN_ID, BASE_BRANCH, PROJECT_ROOT, STATE_DIR,
+#               TMUX_SESSION, MANIFEST, TEAM_SIZE, TOKENS, TOKEN_COUNT
+# ---------------------------------------------------------------------------
+launch_single_swarm() {
+    local i="$1"
+
+    local SLUG
     SLUG=$(jq -r ".swarms[$((i-1))].slug // \"task-${i}\"" "$MANIFEST")
-    BRANCH="swarm/${RUN_ID}/${i}-${SLUG}"
-    WORKTREE_PATH="${PROJECT_ROOT}/.claude/worktrees/swarm-${RUN_ID}-${i}"
-    STATUS_FILE="$STATE_DIR/swarms/swarm-${i}/status.json"
-    PROMPT_FILE="$STATE_DIR/swarms/swarm-${i}/prompt.md"
+    local BRANCH="swarm/${RUN_ID}/${i}-${SLUG}"
+    local WORKTREE_PATH="${PROJECT_ROOT}/.claude/worktrees/swarm-${RUN_ID}-${i}"
+    local STATUS_FILE="$STATE_DIR/swarms/swarm-${i}/status.json"
+    local PROMPT_FILE="$STATE_DIR/swarms/swarm-${i}/prompt.md"
 
     # Assign OAuth token (round-robin across available tokens)
-    TOKEN_INDEX=$(( (i - 1) % TOKEN_COUNT ))
-    SWARM_TOKEN="${TOKENS[$TOKEN_INDEX]}"
+    local TOKEN_INDEX=$(( (i - 1) % TOKEN_COUNT ))
+    local SWARM_TOKEN="${TOKENS[$TOKEN_INDEX]}"
 
     echo ""
     echo "--- Launching Swarm $i: $SLUG (token $((TOKEN_INDEX + 1))/$TOKEN_COUNT) ---"
@@ -136,10 +164,15 @@ for i in $(seq 1 "$SWARM_COUNT"); do
     echo "  Worktree setup complete"
 
     # Render swarm prompt
+    local SUBTASK
     SUBTASK=$(jq -r ".swarms[$((i-1))].description // \"Subtask ${i}\"" "$MANIFEST")
+    local FILE_SCOPE
     FILE_SCOPE=$(jq -r ".swarms[$((i-1))].fileScope // [] | join(\", \")" "$MANIFEST")
+    local NO_PARALLEL
     NO_PARALLEL=$(jq -r ".noParallelEdit // [] | join(\", \")" "$MANIFEST")
+    local TEST_CMD
     TEST_CMD=$(jq -r '.testCommand // "npm test"' "$MANIFEST")
+    local LINT_CMD
     LINT_CMD=$(jq -r '.lintCommand // ""' "$MANIFEST")
 
     cat > "$PROMPT_FILE" << PROMPT
@@ -201,7 +234,7 @@ STATUS
     tmux new-window -t "$TMUX_SESSION" -n "swarm-${i}"
 
     # Build the launch script (avoids quoting issues with tmux send-keys)
-    LAUNCH_SCRIPT="$STATE_DIR/swarms/swarm-${i}/launch.sh"
+    local LAUNCH_SCRIPT="$STATE_DIR/swarms/swarm-${i}/launch.sh"
     # Choose launch mode based on team size
     if [ "${TEAM_SIZE}" -gt 0 ]; then
         # Interactive mode for agent teams (teams require interactive sessions)
@@ -238,6 +271,11 @@ LAUNCH
     echo "$$" > "$STATE_DIR/swarms/swarm-${i}/pid.txt"
 
     echo "  Swarm $i launched in tmux window"
+}
+
+# Launch each swarm linearly (no dependency ordering)
+for i in $(seq 1 "$SWARM_COUNT"); do
+    launch_single_swarm "$i"
 
     # Stagger launches to avoid thundering herd
     if [ "$i" -lt "$SWARM_COUNT" ]; then
