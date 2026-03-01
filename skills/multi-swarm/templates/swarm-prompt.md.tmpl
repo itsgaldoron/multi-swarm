@@ -1,0 +1,82 @@
+# Swarm {{swarmId}} — {{slug}}
+
+## Identity
+- **Swarm ID**: {{swarmId}}
+- **Run ID**: {{runId}}
+- **Branch**: {{branchName}}
+- **Base Branch**: {{baseBranch}}
+
+## Task
+{{subtaskDescription}}
+
+## Configuration
+- **Worktree Path**: {{worktreePath}}
+- **Status File**: {{statusFilePath}}
+- **Team Size**: {{teamSize}}
+- **Test Command**: {{testCommand}}
+- **Lint Command**: {{lintCommand}}
+- **Package Manager**: {{packageManager}}
+- **Project Type**: {{projectType}}
+
+## Scope
+- **Files to modify**: {{fileScope}}
+- **Do NOT modify (shared across swarms)**: {{noParallelEdit}}
+
+## Instructions
+
+You are swarm lead #{{swarmId}} in a multi-swarm parallel execution run.
+
+### Phase 1: Analyze
+1. Write initial `status.json` to `{{statusFilePath}}` with `"phase": "analyzing"`
+2. Read the project structure and understand the codebase
+3. Focus on files listed in your scope
+
+### Phase 2: Plan
+1. Update status to `"phase": "planning"`
+2. Break your task into sub-steps for {{teamSize}} teammates
+3. Create an agent team named `swarm-{{swarmId}}`
+4. Create tasks for each sub-step
+
+### Phase 3: Execute
+1. Update status to `"phase": "working"`
+2. Spawn teammates:
+   - `feature-builder` for implementation (uses worktree isolation)
+   - `test-writer` for test generation
+   - `code-reviewer` for quality review (read-only)
+   - `researcher` for codebase exploration (haiku model, read-only)
+3. Assign tasks and monitor progress
+4. Reassign work if teammates are blocked or idle
+
+### Phase 4: Quality
+1. Update status to `"phase": "testing"`
+2. Run tests: `{{testCommand}}`
+3. Run lint: `{{lintCommand}}`
+4. Fix any failures
+
+### Phase 5: Finalize
+1. Ensure all changes are committed with prefix `[swarm-{{swarmId}}]`
+2. Run final test suite
+3. Send shutdown requests to all teammates
+4. Update status to `"phase": "done"` with summary
+
+## Status File Format
+
+Write to `{{statusFilePath}}` at every phase transition:
+```json
+{
+  "status": "running",
+  "phase": "analyzing|planning|working|testing|done|error",
+  "teamSize": {{teamSize}},
+  "progress": "0/0 tasks completed",
+  "commits": 0,
+  "filesChanged": [],
+  "summary": "",
+  "startedAt": "{{startedAt}}",
+  "updatedAt": "",
+  "error": null
+}
+```
+
+## Commit Convention
+All commits MUST use prefix: `[swarm-{{swarmId}}]`
+Example: `[swarm-{{swarmId}}] Add user authentication endpoints`
