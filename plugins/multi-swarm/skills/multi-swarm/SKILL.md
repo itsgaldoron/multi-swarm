@@ -158,13 +158,55 @@ Follow these 5 phases exactly. Do NOT skip any phase.
 
    This script handles:
    - Creating tmux session `swarm-{run-id}`
-   - For each swarm: create worktree, render prompt, launch Claude Code in tmux window
+   - **Automatic DAG detection**: If any swarm declares `dependencies`, swarm.sh delegates to `dag-scheduler.sh` for dependency-aware launching (see [DAG Scheduling](#dag-scheduling) below)
+   - For linear (no-dependency) runs: create worktree, render prompt, launch Claude Code in tmux window
    - Staggering launches by 2 seconds
 
 4. **Confirm launch**: Verify all tmux windows are running:
    ```bash
    tmux list-windows -t "swarm-${RUN_ID}"
    ```
+
+---
+
+### DAG Scheduling (Dependency-Aware Launch) {#dag-scheduling}
+
+When swarms declare `dependencies` in the manifest (see the `dependencies` field in the manifest example above), the system automatically uses `dag-scheduler.sh` instead of launching all swarms simultaneously. This enables ordered execution where some swarms wait for prerequisites to complete before starting.
+
+**How it works:**
+
+1. **Automatic detection**: `swarm.sh` inspects the manifest for any swarm with a non-empty `dependencies` array. If found, it delegates to `dag-scheduler.sh` via `exec`. You can also force DAG mode by setting `USE_DAG_SCHEDULER=1`.
+
+2. **Graph validation**: The DAG scheduler builds a directed acyclic graph from the dependency declarations, then validates it with cycle detection (iterative DFS). If a cycle is found, the run aborts with an error.
+
+3. **Topological ordering**: Swarms are topologically sorted using Kahn's algorithm to determine a valid execution order.
+
+4. **Dependency-aware launching**:
+   - Swarms with no dependencies (root nodes) launch immediately
+   - Dependent swarms launch only after **all** their prerequisites have completed
+   - Multiple independent swarms at the same level launch in parallel
+
+5. **Dynamic rebalancing**: When a swarm completes, the scheduler:
+   - Logs that the swarm's token slot and worktree are available for reassignment
+   - Checks which downstream swarms are now unblocked
+   - Launches newly-ready swarms with a 2-second stagger
+
+6. **Dependency context**: Swarms launched after their prerequisites receive extra context in their prompt listing the completed dependency branches, so they can reference or build upon that work.
+
+**Example manifest with dependencies:**
+
+```json
+{
+  "swarms": [
+    {"id": 1, "slug": "auth-api", "dependencies": []},
+    {"id": 2, "slug": "auth-ui", "dependencies": [1]},
+    {"id": 3, "slug": "auth-middleware", "dependencies": [1]},
+    {"id": 4, "slug": "integration-tests", "dependencies": [1, 2, 3]}
+  ]
+}
+```
+
+In this example: swarm 1 launches immediately; swarms 2 and 3 launch in parallel once swarm 1 completes; swarm 4 launches only after all three predecessors finish.
 
 ---
 
@@ -396,6 +438,8 @@ Process completed swarms sequentially (in order) to create and merge PRs.
 | Tests fail (quality gate) | quality-gate.sh exits 2 | Block task completion, agent must fix |
 | Merge conflict | `git rebase` or `gh pr merge` fails | Leave PR open, continue others, report |
 | Partial completion | Some swarms fail | Merge successes, report failures with details |
+| Dependency failure | Prerequisite swarm fails/errors | All transitive dependents marked as `blocked`, reported to user |
+| DAG cycle detected | `dag-scheduler.sh` startup validation | Abort run immediately — manifest must be corrected |
 
 ---
 
@@ -413,4 +457,15 @@ Process completed swarms sequentially (in order) to create and merge PRs.
 
 # Specify base branch
 /multi-swarm "Fix all lint errors" --base-branch develop --swarms 8 --team-size 2
+
+# Tasks with dependencies (auto-uses DAG scheduler)
+/multi-swarm "Build auth system with API, UI, and integration tests"
+# Decomposes into:
+#   Swarm 1: auth-api (no deps) — launches immediately
+#   Swarm 2: auth-ui (depends on 1) — waits for API
+#   Swarm 3: auth-middleware (depends on 1) — waits for API, runs parallel with 2
+#   Swarm 4: integration-tests (depends on 1, 2, 3) — waits for all others
+
+# Force DAG scheduler even without explicit dependencies
+USE_DAG_SCHEDULER=1 /multi-swarm "Refactor database layer" --swarms 4
 ```
