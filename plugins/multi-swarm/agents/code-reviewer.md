@@ -1,7 +1,8 @@
 ---
 name: code-reviewer
-description: Reviews code for quality, security, correctness
-model: opus
+description: Reviews code for quality, security, correctness. Uses Haiku for fast, cost-efficient code analysis.
+model: haiku
+modelTier: 3
 tools: Read, Grep, Glob, Bash, SendMessage, TaskUpdate
 permissionMode: bypassPermissions
 maxTurns: 30

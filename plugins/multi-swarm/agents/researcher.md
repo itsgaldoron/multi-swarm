@@ -1,7 +1,8 @@
 ---
 name: researcher
-description: Researches codebases, APIs, docs. Read-only, fast.
-model: opus
+description: Researches codebases, APIs, docs. Read-only, fast. Uses Haiku for fast, cost-efficient read-only research.
+model: haiku
+modelTier: 3
 tools: Read, Grep, Glob, WebFetch, SendMessage, TaskUpdate
 permissionMode: bypassPermissions
 maxTurns: 20
