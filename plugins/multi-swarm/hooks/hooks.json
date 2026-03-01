@@ -31,6 +31,54 @@
           }
         ]
       }
+    ],
+    "PreCommit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/skills/multi-swarm/scripts/quality-gate.sh\" --pre-commit",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": {
+          "tool": "Edit"
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/skills/multi-swarm/scripts/quality-gate.sh\" --quick-check",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "tool": "Write"
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/skills/multi-swarm/scripts/quality-gate.sh\" --quick-check",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/skills/multi-swarm/scripts/quality-report.sh\"",
+            "timeout": 60
+          }
+        ]
+      }
     ]
   }
 }
