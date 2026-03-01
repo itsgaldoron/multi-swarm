@@ -26,6 +26,36 @@ All agents participating in a multi-swarm run MUST follow these rules:
 - When idle, review recent commits from other teammates for bugs and style issues
 - Do not send unnecessary messages — be concise and actionable
 
+## IPC Protocol
+
+Inter-swarm communication uses a file-based message bus. All swarms in a run share an IPC directory.
+
+### Message Types
+- **DISCOVERY**: Share findings with other swarms (e.g., found reusable code, discovered a pattern). Use liberally — shared knowledge prevents duplicate work.
+- **BLOCKER**: Warn about conflicts or blocking issues (e.g., file conflicts, failing tests that affect others). Treat BLOCKER messages as HIGH PRIORITY — read and respond immediately.
+- **BROADCAST**: Announcements to all swarms (e.g., status updates, merge notifications). Keep broadcasts rare and important.
+- **REQUEST**: Ask a specific swarm for information or action. Always include what you need and why.
+
+### When to Send Messages
+- Send a DISCOVERY when you find something that other swarms might benefit from
+- Send a BLOCKER immediately when you detect a conflict or issue affecting another swarm
+- Send a BROADCAST for major milestones (e.g., "finished core implementation, ready for integration")
+- Send a REQUEST when you need information or coordination from a specific swarm
+- Do NOT flood the bus — only send messages that are actionable
+
+### When to Check Messages
+- Check your IPC inbox at every phase transition
+- Check your IPC inbox before editing any shared or potentially contested file
+- Act on BLOCKER messages before continuing your current work
+- Acknowledge DISCOVERY messages that affect your approach
+
+### Message Etiquette
+- Keep messages concise and actionable — one topic per message
+- Include context: what you found, why it matters, what action is needed
+- For BLOCKER messages: include the file path and nature of the conflict
+- For REQUEST messages: include a clear question and expected response format
+- Never ignore BLOCKER messages — they indicate potential conflicts that can waste time
+
 ## Resource Discipline
 - Do not install new dependencies without checking if they're already available
 - Do not create files outside the project's conventional directories

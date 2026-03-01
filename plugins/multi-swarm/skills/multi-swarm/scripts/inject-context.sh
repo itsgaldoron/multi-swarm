@@ -25,4 +25,19 @@ sessions are working on different parts of the same project simultaneously.
 - Fix any test failures you introduce
 - Follow existing code patterns and conventions
 - Write clean, readable code with no debugging artifacts
+
+### Inter-Swarm Communication (IPC)
+
+This project uses a file-based IPC system for inter-swarm coordination.
+Other swarms may send you messages via the IPC bus.
+
+- Check your IPC inbox (ipc-inbox.md in your swarm's state directory) at phase transitions
+- BLOCKER messages are high priority — stop and address them before continuing
+- DISCOVERY messages may contain useful findings from other swarms — review them
+- Use ipc.sh to send messages to other swarms when you make significant discoveries
+- Message types: DISCOVERY, BLOCKER, BROADCAST, REQUEST
+- Keep your messages concise and actionable
+
+If your swarm lead hasn't set up the IPC watcher, you can manually check for messages:
+  bash scripts/ipc.sh list <run-id> --for <your-swarm-id> --unread
 CONTEXT
