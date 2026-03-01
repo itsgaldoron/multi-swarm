@@ -4,7 +4,7 @@ description: Implements features in isolated worktree
 model: opus
 isolation: worktree
 tools: Read, Write, Edit, Bash, Grep, Glob
-permissionMode: acceptEdits
+permissionMode: bypassPermissions
 maxTurns: 50
 ---
 

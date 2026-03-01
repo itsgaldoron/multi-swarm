@@ -4,7 +4,7 @@ description: Writes comprehensive tests for new code
 model: opus
 isolation: worktree
 tools: Read, Write, Edit, Bash, Grep, Glob
-permissionMode: acceptEdits
+permissionMode: bypassPermissions
 maxTurns: 40
 ---
 

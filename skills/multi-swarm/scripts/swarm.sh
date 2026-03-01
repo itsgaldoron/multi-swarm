@@ -131,7 +131,10 @@ STATUS
 
     # Build the launch script (avoids quoting issues with tmux send-keys)
     LAUNCH_SCRIPT="$STATE_DIR/swarms/swarm-${i}/launch.sh"
-    cat > "$LAUNCH_SCRIPT" << LAUNCH
+    # Choose launch mode based on team size
+    if [ "${TEAM_SIZE}" -gt 0 ]; then
+        # Interactive mode for agent teams (teams require interactive sessions)
+        cat > "$LAUNCH_SCRIPT" << LAUNCH
 #!/usr/bin/env bash
 cd '${WORKTREE_PATH}'
 unset CLAUDECODE
@@ -140,8 +143,21 @@ PROMPT=\$(cat '${PROMPT_FILE}')
 claude --dangerously-skip-permissions \\
        --model opus \\
        --append-system-prompt "\$PROMPT" \\
+       "Execute the task described in your system prompt. Work autonomously — do not ask questions, just execute. When fully done, type /exit."
+LAUNCH
+    else
+        # Non-interactive print mode for solo swarms (no teammates needed)
+        cat > "$LAUNCH_SCRIPT" << LAUNCH
+#!/usr/bin/env bash
+cd '${WORKTREE_PATH}'
+unset CLAUDECODE
+PROMPT=\$(cat '${PROMPT_FILE}')
+claude --dangerously-skip-permissions \\
+       --model opus \\
+       --append-system-prompt "\$PROMPT" \\
        -p "Execute the task described in your system prompt. Do not ask questions — just do it."
 LAUNCH
+    fi
     chmod +x "$LAUNCH_SCRIPT"
 
     # Launch via script to avoid tmux quoting issues
