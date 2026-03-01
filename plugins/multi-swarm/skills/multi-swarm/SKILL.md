@@ -132,7 +132,7 @@ Follow these 5 phases exactly. Do NOT skip any phase.
 
 1. **Start LiteLLM gateway** (if not already running):
    ```bash
-   PLUGIN_ROOT="$(dirname "$(dirname "$(dirname "$(realpath "$0")")")")"
+   PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(find ~/.claude/plugins/cache -path '*/multi-swarm-marketplace/multi-swarm/*/skills' -type d 2>/dev/null | head -1 | sed 's|/skills$||')}"
    bash "${PLUGIN_ROOT}/skills/multi-swarm/scripts/gateway-setup.sh"
    ```
    Verify health:
@@ -149,7 +149,7 @@ Follow these 5 phases exactly. Do NOT skip any phase.
    done
    ```
 
-3. **Launch swarms** using the orchestrator script:
+3. **Launch swarms** using the orchestrator script (uses `PLUGIN_ROOT` from step 1):
    ```bash
    bash "${PLUGIN_ROOT}/skills/multi-swarm/scripts/swarm.sh" \
      "$RUN_ID" "$BASE_BRANCH" "$SWARMS" "$TEAM_SIZE" \
@@ -300,12 +300,28 @@ Process completed swarms sequentially (in order) to create and merge PRs.
    tmux kill-session -t "swarm-${RUN_ID}" 2>/dev/null || true
    ```
 
-2. **Run teardown scripts** for each worktree:
+2. **Collect artifacts and clean up worktrees**:
    ```bash
    for i in $(seq 1 $SWARMS); do
      WORKTREE=".claude/worktrees/swarm-${RUN_ID}-${i}"
      if [ -d "$WORKTREE" ]; then
-       WORKTREE_PATH="$WORKTREE" bash "${PLUGIN_ROOT}/skills/multi-swarm/scripts/worktree-teardown.sh"
+       WORKTREE_NAME=$(basename "$WORKTREE")
+       ARTIFACTS_DIR="${HOME}/.claude/artifacts/${WORKTREE_NAME}"
+       mkdir -p "$ARTIFACTS_DIR"
+       # Collect coverage/test artifacts
+       for d in coverage .nyc_output htmlcov; do
+         [ -d "${WORKTREE}/${d}" ] && cp -r "${WORKTREE}/${d}" "${ARTIFACTS_DIR}/" 2>/dev/null || true
+       done
+       for f in test-results.xml junit.xml test-report.html; do
+         [ -f "${WORKTREE}/${f}" ] && cp "${WORKTREE}/${f}" "${ARTIFACTS_DIR}/" 2>/dev/null || true
+       done
+       # Clean heavy directories and .env files
+       for d in node_modules .next dist build target __pycache__ .pytest_cache .tox .venv venv; do
+         rm -rf "${WORKTREE}/${d}" 2>/dev/null || true
+       done
+       for envfile in .env .env.local .env.development.local .env.test.local .env.production.local; do
+         rm -f "${WORKTREE}/${envfile}" 2>/dev/null || true
+       done
      fi
    done
    ```

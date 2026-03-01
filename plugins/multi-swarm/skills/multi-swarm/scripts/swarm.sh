@@ -82,6 +82,59 @@ for i in $(seq 1 "$SWARM_COUNT"); do
         git worktree add "$WORKTREE_PATH" -b "$BRANCH" "$BASE_BRANCH"
     }
 
+    # Inline worktree setup (replaces non-functional WorktreeCreate hook)
+    echo "  Running worktree setup..."
+    (
+        cd "$WORKTREE_PATH"
+        GLOBAL_CONFIG="$HOME/.claude/multi-swarm/config.json"
+        INSTALL_DEPS=$(jq -r '.setup.installDependencies // true' "$GLOBAL_CONFIG" 2>/dev/null || echo "true")
+        COPY_ENV=$(jq -r '.setup.copyEnvFiles // true' "$GLOBAL_CONFIG" 2>/dev/null || echo "true")
+        ENV_FILES=$(jq -r '.setup.envFilesToCopy // [".env", ".env.local", ".env.development.local"] | .[]' "$GLOBAL_CONFIG" 2>/dev/null || echo -e ".env\n.env.local\n.env.development.local")
+
+        if [ "$INSTALL_DEPS" = "true" ]; then
+            if [ -f "pnpm-lock.yaml" ]; then
+                pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+            elif [ -f "yarn.lock" ]; then
+                yarn install --frozen-lockfile 2>/dev/null || yarn install
+            elif [ -f "bun.lockb" ] || [ -f "bun.lock" ]; then
+                bun install --frozen-lockfile 2>/dev/null || bun install
+            elif [ -f "package-lock.json" ]; then
+                npm ci 2>/dev/null || npm install
+            elif [ -f "Cargo.toml" ]; then
+                cargo build 2>/dev/null || true
+            elif [ -f "go.mod" ]; then
+                go mod download 2>/dev/null || true
+            elif [ -f "requirements.txt" ]; then
+                pip install -r requirements.txt 2>/dev/null || true
+            elif [ -f "pyproject.toml" ]; then
+                if command -v uv &>/dev/null; then
+                    uv sync 2>/dev/null || true
+                elif [ -f "poetry.lock" ]; then
+                    poetry install 2>/dev/null || true
+                else
+                    pip install -e . 2>/dev/null || true
+                fi
+            elif [ -f "Gemfile" ]; then
+                bundle install 2>/dev/null || true
+            fi
+        fi
+
+        if [ "$COPY_ENV" = "true" ] && [ -d "$PROJECT_ROOT" ]; then
+            echo "$ENV_FILES" | while read -r envfile; do
+                if [ -n "$envfile" ] && [ -f "${PROJECT_ROOT}/${envfile}" ]; then
+                    cp "${PROJECT_ROOT}/${envfile}" "${WORKTREE_PATH}/${envfile}"
+                    echo "  Copied ${envfile} from source project"
+                fi
+            done
+        fi
+
+        # Run project-specific setup if it exists
+        if [ -f "${PROJECT_ROOT}/.multi-swarm/setup.sh" ]; then
+            bash "${PROJECT_ROOT}/.multi-swarm/setup.sh" "$WORKTREE_PATH"
+        fi
+    )
+    echo "  Worktree setup complete"
+
     # Render swarm prompt
     SUBTASK=$(jq -r ".swarms[$((i-1))].description // \"Subtask ${i}\"" "$MANIFEST")
     FILE_SCOPE=$(jq -r ".swarms[$((i-1))].fileScope // [] | join(\", \")" "$MANIFEST")
@@ -196,4 +249,4 @@ done
 echo ""
 echo "=== All $SWARM_COUNT swarms launched ==="
 echo "Monitor: tmux attach -t $TMUX_SESSION"
-echo "Status:  bash scripts/monitor.sh $RUN_ID"
+echo "Status:  bash \"\$HOME/.claude/multi-swarm/scripts/monitor.sh\" $RUN_ID"

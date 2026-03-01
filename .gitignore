@@ -1,0 +1,6 @@
+.claude/worktrees/
+*.log
+*.pid
+node_modules/
+.env*
+litellm-config.yaml

@@ -2,7 +2,7 @@
 name: researcher
 description: Researches codebases, APIs, docs. Read-only, fast.
 model: opus
-tools: Read, Grep, Glob, WebFetch
+tools: Read, Grep, Glob, WebFetch, SendMessage, TaskUpdate
 permissionMode: bypassPermissions
 maxTurns: 20
 ---

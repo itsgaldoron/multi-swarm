@@ -2,7 +2,7 @@
 name: code-reviewer
 description: Reviews code for quality, security, correctness
 model: opus
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, SendMessage, TaskUpdate
 permissionMode: bypassPermissions
 maxTurns: 30
 ---

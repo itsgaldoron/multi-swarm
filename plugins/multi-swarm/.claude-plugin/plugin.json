@@ -1,6 +1,6 @@
 {
   "name": "multi-swarm",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Multi-Swarm Mode: parallel orchestration with worktrees, agent teams, and OAuth token rotation",
   "author": {
     "name": "galdoron",
@@ -9,5 +9,8 @@
   "repository": "https://github.com/itsgaldoron/multi-swarm",
   "homepage": "https://github.com/itsgaldoron/multi-swarm",
   "license": "MIT",
-  "keywords": ["swarm", "orchestration", "parallel", "worktree", "agent-teams"]
+  "keywords": ["swarm", "orchestration", "parallel", "worktree", "agent-teams"],
+  "agents": "./agents/",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
 }

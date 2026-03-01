@@ -1,27 +1,5 @@
 {
   "hooks": {
-    "WorktreeCreate": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/skills/multi-swarm/scripts/worktree-setup.sh\"",
-            "timeout": 120
-          }
-        ]
-      }
-    ],
-    "WorktreeRemove": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/skills/multi-swarm/scripts/worktree-teardown.sh\"",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
     "TaskCompleted": [
       {
         "hooks": [
