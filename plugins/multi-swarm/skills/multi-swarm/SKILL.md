@@ -167,6 +167,16 @@ Follow these 5 phases exactly. Do NOT skip any phase.
    tmux list-windows -t "swarm-${RUN_ID}"
    ```
 
+5. **Launch streaming merge watcher** (background):
+   ```bash
+   bash "${PLUGIN_ROOT}/skills/multi-swarm/scripts/streaming-merge.sh" \
+     "$RUN_ID" "$BASE_BRANCH" "$SWARMS" "$STATE_DIR/manifest.json" \
+     > "$STATE_DIR/streaming-merge.log" 2>&1 &
+   STREAMING_MERGE_PID=$!
+   echo "$STREAMING_MERGE_PID" > "$STATE_DIR/streaming-merge.pid"
+   ```
+   This starts the merge-as-you-go pipeline. PRs will be created and merged as soon as each swarm finishes, without waiting for all swarms.
+
 ---
 
 ### DAG Scheduling (Dependency-Aware Launch) {#dag-scheduling}
@@ -263,11 +273,67 @@ Poll swarm status every `POLL_INTERVAL` seconds until all swarms complete, fail,
 
 ---
 
-### Phase 4: PR & Merge
+### Phase 3.5: Streaming Merge (merge-as-you-go)
 
-Process completed swarms sequentially (in order) to create and merge PRs.
+While Phase 3 monitors swarm progress, the streaming merge watcher (launched in Phase 2) runs concurrently:
 
-1. **For each completed swarm** (where `status.phase === "done"`), in order:
+1. **How it works**: The `streaming-merge.sh` script polls swarm status files. When any swarm reaches `phase: "done"`, it immediately:
+   - Rebases the swarm branch onto the latest base branch
+   - Pushes and creates a PR
+   - Squash-merges the PR
+   - Updates the base branch for subsequent merges
+
+2. **Dependency awareness**: If swarm B depends on swarm A (per the manifest), B's merge is deferred until A is merged first.
+
+3. **Conflict handling**: If a rebase produces conflicts, the swarm is marked as `"conflict"` in the results file and skipped. Conflicted swarms are left for Phase 4 to handle manually.
+
+4. **Progress tracking**: Merge results are written to `$STATE_DIR/merge-results.json`:
+   ```json
+   {
+     "runId": "{run-id}",
+     "baseBranch": "main",
+     "swarmCount": 4,
+     "startedAt": "ISO timestamp",
+     "completedAt": null,
+     "swarms": {
+       "1": {"status": "merged", "prUrl": "https://...", "error": null, "mergedAt": "ISO timestamp"},
+       "3": {"status": "merged", "prUrl": "https://...", "error": null, "mergedAt": "ISO timestamp"},
+       "2": {"status": "conflict", "prUrl": null, "error": "Rebase conflict", "mergedAt": "ISO timestamp"}
+     }
+   }
+   ```
+
+5. **Monitor integration**: During Phase 3 polling, also check merge progress:
+   ```bash
+   if [ -f "$STATE_DIR/merge-results.json" ]; then
+     MERGED=$(jq '[.swarms[] | select(.status == "merged")] | length' "$STATE_DIR/merge-results.json")
+     echo "Streaming merge: $MERGED swarms merged so far"
+   fi
+   ```
+
+This overlapping of Phase 3 and Phase 4 significantly reduces total pipeline time — merges happen as work completes rather than waiting for the slowest swarm.
+
+---
+
+### Phase 4: Finalize Remaining Merges
+
+By this point, the streaming merge watcher (Phase 3.5) has already merged most completed swarms. Phase 4 handles any remaining swarms that weren't merged during streaming — typically those with conflicts or late finishers.
+
+1. **Check streaming merge results**:
+   ```bash
+   ALREADY_MERGED=$(jq -r '.swarms | to_entries[] | select(.value.status == "merged") | .key' "$STATE_DIR/merge-results.json" 2>/dev/null || echo "")
+   ```
+
+2. **Stop the streaming merge watcher**:
+   ```bash
+   STREAMING_PID=$(cat "$STATE_DIR/streaming-merge.pid" 2>/dev/null)
+   if [ -n "$STREAMING_PID" ]; then
+     kill "$STREAMING_PID" 2>/dev/null || true
+   fi
+   ```
+
+3. **For each completed swarm** (where `status.phase === "done"`), in order:
+   > Skip swarms already merged by streaming (check `$ALREADY_MERGED`)
 
    a. **Checkout and rebase**:
    ```bash
@@ -315,23 +381,12 @@ Process completed swarms sequentially (in order) to create and merge PRs.
    git pull origin "$BASE_BRANCH"
    ```
 
-2. **Handle merge conflicts**:
+4. **Handle merge conflicts**:
    - If rebase fails: leave PR open, log conflict, continue with next swarm
    - Report all conflicts at the end
    - Suggest manual resolution steps
 
-3. **Track merge results** in `$STATE_DIR/merge-results.json`:
-   ```json
-   {
-     "merged": [1, 3],
-     "conflicted": [2],
-     "skipped": [4],
-     "prUrls": {
-       "1": "https://github.com/...",
-       "3": "https://github.com/..."
-     }
-   }
-   ```
+5. **Track merge results**: Update `$STATE_DIR/merge-results.json` (same file used by streaming merge) with results for any newly merged swarms. The file uses per-swarm entries under the `"swarms"` key — see Phase 3.5 step 4 for the format.
 
 ---
 
@@ -342,7 +397,15 @@ Process completed swarms sequentially (in order) to create and merge PRs.
    tmux kill-session -t "swarm-${RUN_ID}" 2>/dev/null || true
    ```
 
-2. **Collect artifacts and clean up worktrees**:
+2. **Stop streaming merge watcher** (if still running):
+   ```bash
+   STREAMING_PID=$(cat "$STATE_DIR/streaming-merge.pid" 2>/dev/null)
+   if [ -n "$STREAMING_PID" ] && kill -0 "$STREAMING_PID" 2>/dev/null; then
+     kill "$STREAMING_PID" 2>/dev/null || true
+   fi
+   ```
+
+3. **Collect artifacts and clean up worktrees**:
    ```bash
    for i in $(seq 1 $SWARMS); do
      WORKTREE=".claude/worktrees/swarm-${RUN_ID}-${i}"
@@ -368,7 +431,7 @@ Process completed swarms sequentially (in order) to create and merge PRs.
    done
    ```
 
-3. **Remove worktrees**:
+4. **Remove worktrees**:
    ```bash
    for i in $(seq 1 $SWARMS); do
      WORKTREE=".claude/worktrees/swarm-${RUN_ID}-${i}"
@@ -377,7 +440,7 @@ Process completed swarms sequentially (in order) to create and merge PRs.
    git worktree prune
    ```
 
-4. **Clean up branches** for merged swarms:
+5. **Clean up branches** for merged swarms:
    ```bash
    for i in ${MERGED_SWARMS}; do
      BRANCH="swarm/${RUN_ID}/${i}-${SLUG}"
@@ -385,7 +448,7 @@ Process completed swarms sequentially (in order) to create and merge PRs.
    done
    ```
 
-5. **Stop gateway** if no other runs are active:
+6. **Stop gateway** if no other runs are active:
    ```bash
    OTHER_RUNS=$(find "$HOME/.claude/multi-swarm/state" -maxdepth 1 -type d | wc -l)
    if [ "$OTHER_RUNS" -le 1 ]; then
@@ -397,7 +460,7 @@ Process completed swarms sequentially (in order) to create and merge PRs.
    fi
    ```
 
-6. **Write final summary** to `$STATE_DIR/result.json`:
+7. **Write final summary** to `$STATE_DIR/result.json`:
    ```json
    {
      "runId": "{run-id}",
@@ -417,7 +480,7 @@ Process completed swarms sequentially (in order) to create and merge PRs.
    }
    ```
 
-7. **Report to user**: Show final summary with:
+8. **Report to user**: Show final summary with:
    - Overall success/failure status
    - Per-swarm results
    - Merged PR URLs

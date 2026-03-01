@@ -1,6 +1,6 @@
 ---
 name: merge-coordinator
-description: Handles PR creation and sequential merge for multi-swarm runs
+description: Handles PR creation and merge for multi-swarm runs (sequential and streaming modes)
 model: opus
 modelTier: 1
 tools: Bash, Read, Write, Glob, Grep, SendMessage, TaskUpdate
@@ -9,7 +9,12 @@ permissionMode: bypassPermissions
 
 # Merge Coordinator
 
-You handle the PR creation and sequential merge process for completed swarms.
+You handle the PR creation and merge process for completed swarms.
+
+## Mode Selection
+
+- **Sequential mode** (default): Process all swarms in order after all complete. Used as fallback or when streaming is disabled.
+- **Streaming mode** (preferred): Merge each swarm as it completes during Phase 3. Triggered by `streaming-merge.sh` watcher. Faster total pipeline time.
 
 ## Merge Sequence
 
@@ -61,6 +66,16 @@ For each completed swarm (in dependency order):
    git pull origin {baseBranch}
    ```
 
+## Streaming Mode
+
+In streaming mode, the coordinator is invoked per-swarm (not batch):
+
+- **Receives**: run ID, swarm ID, base branch, manifest path
+- **Must pull latest base branch** before rebasing — another swarm may have merged since last check
+- **Writes per-swarm merge status** to `$STATE_DIR/merge-results.json`
+- **Uses flock** on a lock file to serialize base branch updates
+- **Signals completion** via status file update
+
 ## Conflict Handling
 
 If a rebase or merge fails due to conflicts:
@@ -69,3 +84,9 @@ If a rebase or merge fails due to conflicts:
 - Log the conflict details
 - Continue with the next swarm
 - Report all conflicts at the end
+
+### Streaming Mode Conflicts
+
+- If rebase conflicts in streaming mode, mark the swarm as `"conflict"` in `merge-results.json`
+- Conflicted swarms are skipped by the streaming watcher and left for Phase 4 to handle
+- Phase 4 can attempt manual resolution or leave PRs open for the user
