@@ -13,11 +13,26 @@ MANIFEST="${5:?Manifest path required}"
 STATE_DIR="$HOME/.claude/multi-swarm/state/${RUN_ID}"
 PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 TMUX_SESSION="swarm-${RUN_ID}"
-GLOBAL_CONFIG="$HOME/.claude/multi-swarm/config.json"
+TOKENS_FILE="$HOME/.claude/multi-swarm/tokens.json"
 
-# Read gateway config
-GATEWAY_PORT=$(jq -r '.gateway.port // 4000' "$GLOBAL_CONFIG" 2>/dev/null || echo "4000")
-MASTER_KEY=$(jq -r '.gateway.masterKey // "sk-swarm-master"' "$GLOBAL_CONFIG" 2>/dev/null || echo "sk-swarm-master")
+# Load OAuth tokens for round-robin assignment
+if [ ! -f "$TOKENS_FILE" ]; then
+    echo "ERROR: No tokens file at $TOKENS_FILE"
+    echo "Create it: echo '[\"sk-ant-oat01-...\", ...]' > $TOKENS_FILE && chmod 600 $TOKENS_FILE"
+    exit 1
+fi
+
+# Read tokens into a bash array
+TOKENS=()
+while IFS= read -r token; do
+    TOKENS+=("$token")
+done < <(jq -r '.[]' "$TOKENS_FILE")
+
+TOKEN_COUNT=${#TOKENS[@]}
+if [ "$TOKEN_COUNT" -eq 0 ]; then
+    echo "ERROR: No tokens found in $TOKENS_FILE"
+    exit 1
+fi
 
 echo "=== Multi-Swarm Launch ==="
 echo "Run ID:      $RUN_ID"
@@ -25,6 +40,7 @@ echo "Base Branch: $BASE_BRANCH"
 echo "Swarms:      $SWARM_COUNT"
 echo "Team Size:   $TEAM_SIZE"
 echo "Project:     $PROJECT_ROOT"
+echo "Tokens:      $TOKEN_COUNT available"
 echo "=========================="
 
 # Create state directories
@@ -32,13 +48,6 @@ mkdir -p "$STATE_DIR"
 for i in $(seq 1 "$SWARM_COUNT"); do
     mkdir -p "$STATE_DIR/swarms/swarm-${i}"
 done
-
-# Verify gateway is running
-if ! curl -sf -H "Authorization: Bearer ${MASTER_KEY}" "http://127.0.0.1:${GATEWAY_PORT}/health" >/dev/null 2>&1; then
-    echo "ERROR: LiteLLM gateway not running on port $GATEWAY_PORT"
-    echo "Start it with: bash scripts/gateway-setup.sh"
-    exit 1
-fi
 
 # Create tmux session
 tmux new-session -d -s "$TMUX_SESSION" -n "monitor" 2>/dev/null || {
@@ -57,8 +66,12 @@ for i in $(seq 1 "$SWARM_COUNT"); do
     STATUS_FILE="$STATE_DIR/swarms/swarm-${i}/status.json"
     PROMPT_FILE="$STATE_DIR/swarms/swarm-${i}/prompt.md"
 
+    # Assign OAuth token (round-robin across available tokens)
+    TOKEN_INDEX=$(( (i - 1) % TOKEN_COUNT ))
+    SWARM_TOKEN="${TOKENS[$TOKEN_INDEX]}"
+
     echo ""
-    echo "--- Launching Swarm $i: $SLUG ---"
+    echo "--- Launching Swarm $i: $SLUG (token $((TOKEN_INDEX + 1))/$TOKEN_COUNT) ---"
 
     # Create git worktree
     echo "  Creating worktree at $WORKTREE_PATH..."
@@ -139,11 +152,8 @@ STATUS
 cd '${WORKTREE_PATH}'
 unset CLAUDECODE
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
-# Route all API calls through LiteLLM gateway for token round-robin
-export ANTHROPIC_BASE_URL="http://127.0.0.1:${GATEWAY_PORT}"
-export ANTHROPIC_API_KEY="${MASTER_KEY}"
 PROMPT=\$(cat '${PROMPT_FILE}')
-claude --dangerously-skip-permissions \\
+CLAUDE_CODE_OAUTH_TOKEN='${SWARM_TOKEN}' claude --dangerously-skip-permissions \\
        --model opus \\
        --append-system-prompt "\$PROMPT" \\
        "Execute the task described in your system prompt. Work autonomously — do not ask questions, just execute. When fully done, type /exit."
@@ -154,11 +164,8 @@ LAUNCH
 #!/usr/bin/env bash
 cd '${WORKTREE_PATH}'
 unset CLAUDECODE
-# Route all API calls through LiteLLM gateway for token round-robin
-export ANTHROPIC_BASE_URL="http://127.0.0.1:${GATEWAY_PORT}"
-export ANTHROPIC_API_KEY="${MASTER_KEY}"
 PROMPT=\$(cat '${PROMPT_FILE}')
-claude --dangerously-skip-permissions \\
+CLAUDE_CODE_OAUTH_TOKEN='${SWARM_TOKEN}' claude --dangerously-skip-permissions \\
        --model opus \\
        --append-system-prompt "\$PROMPT" \\
        -p "Execute the task described in your system prompt. Do not ask questions — just do it."
