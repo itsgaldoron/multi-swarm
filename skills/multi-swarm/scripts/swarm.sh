@@ -112,15 +112,20 @@ ${SUBTASK}
 - **Files to modify**: ${FILE_SCOPE}
 - **Do NOT modify (shared)**: ${NO_PARALLEL}
 
-## Instructions
-You are swarm lead #${i}. Follow the swarm-lead agent protocol:
-1. Write initial status.json with phase "analyzing"
+## MANDATORY Instructions
+
+You are swarm lead #${i}. You MUST follow these steps exactly:
+
+1. Write initial status.json with phase "analyzing" using the Bash tool
 2. Analyze the codebase and plan your approach
-3. Create an agent team and break work into tasks for ${TEAM_SIZE} teammates
-4. Coordinate teammates, monitor progress, ensure quality
-5. Run tests and lint before finishing
+3. **MANDATORY — DO NOT SKIP**: You MUST use the TeamCreate tool to create an agent team, then use TaskCreate to create tasks, then use the Agent tool to spawn exactly ${TEAM_SIZE} teammates (use subagent_type "general-purpose" for each). Assign tasks to them using TaskUpdate. DO NOT do the implementation work yourself — delegate ALL coding to your teammates. Your role is ONLY to coordinate.
+4. Wait for teammates to complete their tasks. Use SendMessage to communicate with them.
+5. After all teammates finish, review their work, run tests and lint
 6. Commit all changes with prefix [swarm-${i}]
-7. Write final status.json with phase "done"
+7. Send shutdown requests to all teammates using SendMessage with type "shutdown_request"
+8. Write final status.json with phase "done"
+
+CRITICAL: You are a COORDINATOR, not an implementer. If you write code yourself instead of delegating to teammates, you have FAILED your role. You MUST spawn ${TEAM_SIZE} teammates using the Agent tool.
 PROMPT
 
     # Initialize status.json
