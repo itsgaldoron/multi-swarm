@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "local",
+  "version": "1.0.0",
+  "description": "Local plugins for multi-swarm orchestration",
+  "owner": {
+    "name": "galdoron",
+    "email": "galdoron@users.noreply.github.com"
+  },
+  "plugins": [
+    {
+      "name": "multi-swarm",
+      "description": "Multi-Swarm Mode: parallel orchestration with worktrees, agent teams, and token rotation",
+      "version": "1.0.0",
+      "source": ".",
+      "category": "development"
+    }
+  ]
+}
