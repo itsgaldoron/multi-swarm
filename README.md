@@ -34,24 +34,21 @@ Meta-Lead (your Claude Code session)
 
 ## Installation
 
-### Step 1: Clone or copy the plugin
-
-Copy the `multi-swarm/` directory to a permanent location. The recommended spot is `~/.claude/plugins/multi-swarm/`:
+### Step 1: Add the marketplace and install
 
 ```bash
-# From this repo
-cp -r multi-swarm ~/.claude/plugins/multi-swarm
-```
+# From GitHub
+claude plugin marketplace add https://github.com/itsgaldoron/multi-swarm
+claude plugin install multi-swarm@multi-swarm-marketplace
 
-Or clone standalone:
-
-```bash
-git clone <repo-url> ~/.claude/plugins/multi-swarm
+# Or from a local clone
+claude plugin marketplace add /path/to/multi-swarm
+claude plugin install multi-swarm@multi-swarm-marketplace
 ```
 
 ### Step 2: Set up global config and tokens
 
-The installer creates two files in `~/.claude/multi-swarm/`:
+Create two files in `~/.claude/multi-swarm/`:
 
 ```bash
 # Create config directory
@@ -99,25 +96,7 @@ EOF
 chmod 600 ~/.claude/multi-swarm/tokens.json
 ```
 
-### Step 3: Enable the plugin in your project
-
-In any project where you want to use multi-swarm, add it to the project's `.claude/settings.json`:
-
-```json
-{
-  "plugins": ["~/.claude/plugins/multi-swarm"]
-}
-```
-
-Or to enable it globally for all projects, add to `~/.claude/settings.json`:
-
-```json
-{
-  "plugins": ["~/.claude/plugins/multi-swarm"]
-}
-```
-
-### Step 4: Verify
+### Step 3: Verify
 
 Open Claude Code in any project:
 
@@ -252,33 +231,29 @@ lsof -ti:${PORT} | xargs kill 2>/dev/null || true
 
 ```
 multi-swarm/
-├── plugin.json                        # Plugin manifest
-├── settings.json                      # Env vars, permissions, teammate mode
+├── .claude-plugin/
+│   └── plugin.json                    # Plugin manifest (agents, skills, hooks paths)
 ├── README.md                          # This file
 │
 ├── agents/                            # Agent definitions
 │   ├── swarm-lead.md                  # Swarm coordinator (opus)
 │   ├── feature-builder.md             # Implementation specialist (opus, worktree)
-│   ├── code-reviewer.md               # Review specialist (opus, read-only)
+│   ├── code-reviewer.md               # Review specialist (opus)
 │   ├── test-writer.md                 # Test specialist (opus, worktree)
-│   ├── researcher.md                  # Research specialist (opus, read-only)
+│   ├── researcher.md                  # Research specialist (opus)
 │   └── merge-coordinator.md           # PR merge specialist (opus)
 │
 ├── skills/multi-swarm/
 │   ├── SKILL.md                       # /multi-swarm entry point
-│   ├── scripts/
-│   │   ├── gateway-setup.sh           # LiteLLM config gen + start
-│   │   ├── swarm.sh                   # tmux orchestrator
-│   │   ├── worktree-setup.sh          # Dependency install, env copy
-│   │   ├── worktree-teardown.sh       # Artifact collection, cleanup
-│   │   ├── quality-gate.sh            # Test/lint gate (TaskCompleted hook)
-│   │   ├── idle-reassign.sh           # Redirect idle agents (TeammateIdle hook)
-│   │   ├── inject-context.sh          # Swarm rules (SubagentStart hook)
-│   │   └── monitor.sh                 # Status dashboard
-│   └── templates/
-│       ├── litellm-config.yaml.tmpl   # Gateway config template
-│       ├── swarm-prompt.md.tmpl       # Per-swarm prompt template
-│       └── pr-body.md.tmpl            # PR description template
+│   └── scripts/
+│       ├── gateway-setup.sh           # LiteLLM config gen + start
+│       ├── swarm.sh                   # tmux orchestrator (includes worktree setup)
+│       ├── worktree-setup.sh          # Standalone worktree setup (reference)
+│       ├── worktree-teardown.sh       # Standalone worktree teardown (reference)
+│       ├── quality-gate.sh            # Test/lint gate (TaskCompleted hook)
+│       ├── idle-reassign.sh           # Redirect idle agents (TeammateIdle hook)
+│       ├── inject-context.sh          # Swarm rules (SubagentStart hook)
+│       └── monitor.sh                 # Status dashboard
 │
 ├── hooks/hooks.json                   # Lifecycle hook wiring
 └── rules/swarm-etiquette.md           # Coordination rules for all agents
@@ -393,10 +368,11 @@ cat ~/.claude/multi-swarm/state/<run-id>/swarms/swarm-3/status.json | jq .
 
 ### Worktree setup fails
 
+Worktree setup runs inline during `swarm.sh` launch. Check the tmux monitor window for setup errors, or test the standalone script manually:
+
 ```bash
-# Manual test
 SOURCE_PROJECT=$(pwd) WORKTREE_PATH=/path/to/worktree \
-  bash ~/.claude/plugins/multi-swarm/skills/multi-swarm/scripts/worktree-setup.sh
+  bash ~/.claude/plugins/cache/multi-swarm-marketplace/multi-swarm/1.1.0/skills/multi-swarm/scripts/worktree-setup.sh
 ```
 
 ### Clean up after a failed run
