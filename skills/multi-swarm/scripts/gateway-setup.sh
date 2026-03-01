@@ -89,18 +89,6 @@ jq -r '.[]' "$TOKENS_FILE" | while read -r TOKEN; do
       api_key: ${TOKEN}
     model_info:
       id: "token-${INDEX}"
-  - model_name: claude-sonnet-4-6
-    litellm_params:
-      model: anthropic/claude-sonnet-4-6
-      api_key: ${TOKEN}
-    model_info:
-      id: "token-${INDEX}-sonnet"
-  - model_name: claude-haiku-4-5
-    litellm_params:
-      model: anthropic/claude-haiku-4-5-20251001
-      api_key: ${TOKEN}
-    model_info:
-      id: "token-${INDEX}-haiku"
 EOF
     INDEX=$((INDEX + 1))
 done

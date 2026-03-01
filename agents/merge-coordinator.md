@@ -1,7 +1,7 @@
 ---
 name: merge-coordinator
 description: Handles PR creation and sequential merge for multi-swarm runs
-model: sonnet
+model: opus
 tools: Bash, Read, Write, Glob, Grep
 permissionMode: bypassPermissions
 ---

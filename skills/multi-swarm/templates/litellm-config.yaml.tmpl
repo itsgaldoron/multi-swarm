@@ -30,18 +30,4 @@ model_list:
       api_key: {{this}}
     model_info:
       id: "token-{{@index}}-opus"
-
-  - model_name: claude-sonnet-4-6
-    litellm_params:
-      model: anthropic/claude-sonnet-4-6
-      api_key: {{this}}
-    model_info:
-      id: "token-{{@index}}-sonnet"
-
-  - model_name: claude-haiku-4-5
-    litellm_params:
-      model: anthropic/claude-haiku-4-5-20251001
-      api_key: {{this}}
-    model_info:
-      id: "token-{{@index}}-haiku"
 {{/each}}

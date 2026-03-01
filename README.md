@@ -261,8 +261,8 @@ multi-swarm/
 │   ├── feature-builder.md             # Implementation specialist (opus, worktree)
 │   ├── code-reviewer.md               # Review specialist (opus, read-only)
 │   ├── test-writer.md                 # Test specialist (opus, worktree)
-│   ├── researcher.md                  # Research specialist (haiku, read-only)
-│   └── merge-coordinator.md           # PR merge specialist (sonnet)
+│   ├── researcher.md                  # Research specialist (opus, read-only)
+│   └── merge-coordinator.md           # PR merge specialist (opus)
 │
 ├── skills/multi-swarm/
 │   ├── SKILL.md                       # /multi-swarm entry point
@@ -336,7 +336,7 @@ The LiteLLM gateway distributes requests across all your tokens:
 - **Routing**: `usage-based-routing-v2` sends requests to the least-loaded key
 - **Circuit breaking**: Rate-limited keys cool down for 60s automatically
 - **Failover**: If one key is down, requests route to the next
-- **Models**: Each token serves Opus, Sonnet, and Haiku endpoints
+- **Models**: Each token serves the Opus endpoint exclusively
 
 ### Merge Strategy
 
