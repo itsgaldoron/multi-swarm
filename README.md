@@ -2,6 +2,10 @@
 
 Parallel orchestration plugin for Claude Code. Runs N independent Claude Code sessions — each with its own git worktree and agent team — coordinated by a meta-lead, with automatic token rotation through a LiteLLM gateway. Includes a shared function library (`lib/common.sh`), checkpoint/resume for crash recovery, and retry-with-backoff for resilient git operations.
 
+<p align="center">
+  <img src="generated-images/v3-variant-1-arch-diagram.png" alt="Multi-Swarm Architecture" width="800">
+</p>
+
 ```
 Meta-Lead (your Claude Code session)
 │
