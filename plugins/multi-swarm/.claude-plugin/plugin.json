@@ -1,0 +1,23 @@
+{
+  "name": "multi-swarm",
+  "version": "1.3.0",
+  "description": "Multi-Swarm Mode: parallel orchestration with worktrees, agent teams, DAG scheduling, IPC, streaming merge, shared library, and checkpoint/resume",
+  "author": {
+    "name": "galdoron",
+    "url": "https://github.com/itsgaldoron"
+  },
+  "repository": "https://github.com/itsgaldoron/multi-swarm",
+  "homepage": "https://github.com/itsgaldoron/multi-swarm",
+  "license": "MIT",
+  "keywords": ["swarm", "orchestration", "parallel", "worktree", "agent-teams"],
+  "agents": [
+    "./agents/swarm-lead.md",
+    "./agents/feature-builder.md",
+    "./agents/test-writer.md",
+    "./agents/code-reviewer.md",
+    "./agents/researcher.md",
+    "./agents/scheduler.md",
+    "./agents/merge-coordinator.md"
+  ],
+  "skills": "./skills/"
+}

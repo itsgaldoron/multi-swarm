@@ -1,0 +1,29 @@
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+._*
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# Runtime
+*.log
+*.pid
+*.tmp
+*.bak
+
+# Dependencies
+node_modules/
+
+# Multi-Swarm runtime (sensitive / auto-generated)
+.claude/worktrees/
+.env*
+litellm-config.yaml
+tokens.json
+state/
